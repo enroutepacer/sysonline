@@ -7,7 +7,7 @@
 A simple automation script built with Python and Selenium for users of `Sysu Online Edu Platform `
 
 ## Overview
-This script automatically plays all the video courses inside one webpage efficiently, including reminders for possible quizzes (Yeah you have to finish the annoying lil test yourself).
+This script automatically plays all the video courses inside one webpage efficiently. Quizzes can also be finished by LLM if your own API is configured.
 
 * Declare:
 It aims to help those *WHO ARE IN GREAT NEED OF COMPLETING ONLINE COURSE BECAUSE OF TIME AND ACADEMIC CONFLICT*
@@ -30,9 +30,12 @@ Make sure these three files are under the same path :
 
 Take care of the text in terminal, it tells everything
 
-To modify the window count, either for a bad network condition, or for better efficiency, go to `config.json`.
-
 If the instruction text in terminal does not pop up in the first place after the script run, it's mostly a network issue, try again later in a better network condition
+
+To modify the **window count**, either for a bad network condition, or for better efficiency, go to `config.json`.
+
+API configuration is optional. To configure your own **API**, go to `config.json`.
+
 
 ## Add
 
@@ -41,6 +44,17 @@ Choose the driver that matches your browser version
 * [Webdriver for Edge](https://developer.microsoft.com/zh-cn/microsoft-edge/tools/webdriver/)
 * [Webdriver for Chrome](https://googlechromelabs.github.io/chrome-for-testing/#stable)
 * [Webdriver for Firefox](https://github.com/mozilla/geckodriver/releases)
+
+### LLM Auto-Answer (multi-core only)
+The multi-core version can auto-answer quiz questions using any OpenAI-compatible API.
+
+Set these fields in `config.json` (leave empty to fall back to manual):
+
+| Field | Content |
+|-------|------------|
+| `APIKEY` | API key |
+| `BASEURL` | Base URL  |
+| `MODELNAME` | Model name |
 
 ### Course on other platforms
 If you are a student from another college or have video courses on other platform
