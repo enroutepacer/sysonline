@@ -1,3 +1,7 @@
 {
-   "sysu_window_count": 5
+   "sysu_window_count": 5,
+
+   "APIKEY": "",
+   "BASEURL": "",
+   "MODELNAME": ""
 }

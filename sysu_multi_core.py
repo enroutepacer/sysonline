@@ -1,19 +1,46 @@
 import os
+import sys
 import time
 import json
+import re
+import requests
 from collections import deque
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
+
+
+def resource_path(relative_path):
+    """获取资源文件的绝对路径（兼容 PyInstaller 打包模式和开发模式）
+    优先使用 exe 同目录下的文件（方便用户编辑 config.json），
+    回退到 _internal 中的打包版本"""
+    # PyInstaller 打包后：优先用 exe 同目录，方便用户修改配置
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        external_path = os.path.join(exe_dir, relative_path)
+        if os.path.exists(external_path):
+            return external_path
+        # 回退到 _internal 中的打包版本
+        return os.path.join(sys._MEIPASS, relative_path)
+    # 开发模式：使用脚本所在目录
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+
 # 读取配置
-with open('config.json', 'r', encoding='utf-8') as f:
+config_path = resource_path('config.json')
+with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
+
+APIKEY = config.get('APIKEY', '')
+BASEURL = config.get('BASEURL', '')
+MODELNAME = config.get('MODELNAME', '')
 
 class Window_worker:
     Is_new = 1
     Is_ended = 0
     id = ''
+
 
 # 抓取视频函数
 def Get_video_links(driver, href_prefix):
@@ -39,6 +66,7 @@ def Get_video_links(driver, href_prefix):
                 except:
                     continue
     return links
+
 
 # 注入 JS 函数
 def Inject_and_check(driver):
@@ -90,6 +118,7 @@ def Inject_and_check(driver):
                     """)
     return status
 
+
 # 阶段性检查函数
 def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     # 操作器回到主窗口
@@ -99,8 +128,47 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
 
     if is_test:
         Is_test = 1
-        input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n")
-        input("确定已完成？如确定练习已完成，请再次点击回车\n")
+        page_fit = 1
+        driver.get(VIDEO_LIST)
+
+        # 尝试进入答题页面
+        try:
+            # 找到未完成元素
+            quizzes = driver.find_elements(By.CSS_SELECTOR, "li.activity.quiz.modtype_quiz")
+            for quiz in quizzes:
+                is_completed = quiz.find_elements(By.CSS_SELECTOR, "span.badge-pill.alert-success")
+                if not is_completed:
+                    link_elem = quiz.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
+                    quiz_url = link_elem.get_attribute("href")
+                    driver.get(quiz_url)
+                    break
+                continue
+            time.sleep(1.5)
+            # 点击按钮
+            start_btn = driver.find_element(By.CSS_SELECTOR, "div.quizstartbuttondiv button[type='submit']")
+            driver.execute_script("arguments[0].click();", start_btn)
+            time.sleep(1.5)
+            confirm_btn = driver.find_element(By.ID, "id_submitbutton")
+            driver.execute_script("arguments[0].click();", confirm_btn)
+            time.sleep(1.5)
+
+        except:
+            page_fit = 0
+            pass
+
+        # 如果配置了 API 则进入答题
+        if page_fit and APIKEY != '' and MODELNAME != '':
+            print("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n\n......LLM 完成题目中......\n")
+            try:
+                LLM_kill_test(driver)
+            except:
+                print("\nLLM 运作失败! ! !\n请手动答题\n")
+
+        # 没有配置或页面错误则手动答题
+        else:
+            input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n")
+            input("确定已完成？如确定练习已完成并提交，请再次点击回车\n")
+        
         driver.get(VIDEO_LIST)
         new_count = 0
         new_all_links = Get_video_links(driver, VIDEO_PREFIX)
@@ -123,6 +191,138 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     return Is_test
 
 
+# 自动答题请求函数 (vibe)
+def LLM_kill_test(driver):
+    questions = driver.find_elements(By.CSS_SELECTOR, "div.que")
+    if not questions:
+        print("\n未找到练习题目。\n")
+        return
+        
+    prompt_text = "你是一个专业助教。请你帮我解答以下的单选/多选题以及判断题。请严格以 JSON 格式返回答案，格式为：{\"answers\": [{\"id\": \"题目ID\", \"choices\": [\"A\"]}]}。\n\n"
+    
+    question_map = {} # q_id -> { "options": { "A": input_element, ... } }
+    
+    for q in questions:
+        q_id = q.get_attribute("id")
+        q_class = q.get_attribute("class")
+        
+        # 判断题目类型
+        if "multichoice" in q_class or "truefalse" in q_class:
+            q_type = "多选题" if "multichoiceset" in q_class else "单选题"
+            
+            try:
+                q_text_elem = q.find_element(By.CSS_SELECTOR, "div.qtext")
+                prompt_text += f"题目ID: {q_id} ({q_type})\n{q_text_elem.text}\n"
+            except:
+                pass
+
+            # 寻找选项
+            q_options_map = {}
+            options_elems = q.find_elements(By.CSS_SELECTOR, "div.answer > div[class^='r']")
+            for opt_idx, opt in enumerate(options_elems):
+                # 获取选项字母
+                try:
+                    letter_elem = opt.find_element(By.CSS_SELECTOR, "span.answernumber")
+                    letter = letter_elem.text.replace(".", "").strip() 
+                # 如果是判断题或没有字母，强制分配 A/B/C/D 
+                except:
+                    letter = chr(ord('A') + opt_idx) 
+
+                # 选项内容
+                try:
+                    text_elem = opt.find_element(By.CSS_SELECTOR, "div.flex-fill")
+                    opt_text = text_elem.text
+                except:
+                    opt_text = opt.text
+                
+                prompt_text += f" {letter}. {opt_text}\n"
+                
+                # 对应的输入框 (radio or checkbox)
+                try:
+                    input_elem = opt.find_element(By.CSS_SELECTOR, "input[type='radio'], input[type='checkbox']")
+                    q_options_map[letter] = input_elem
+                except:
+                    pass
+                
+            prompt_text += "\n"
+            question_map[q_id] = {
+                "options": q_options_map
+            }
+
+    print(f"此练习共 {len(questions)} 道题目，解析文本成功...")
+    if not question_map:
+        print("有效选择题获取为 0 ，请检查是否在考试页。")
+        return
+
+    # 整理请求元素 headers, api_url, payload
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {APIKEY}"
+    }
+
+    api_url = BASEURL if BASEURL.endswith("/chat/completions") else BASEURL.rstrip("/") + "/chat/completions"
+    
+    payload = {
+        "model": MODELNAME,
+        "messages": [
+            {"role": "system", "content": "你是一个严格输出 JSON 的人工智能。绝不能返回任何带有 Markdown 的解释，仅返回合法的 JSON 对象。"},
+            {"role": "user", "content": prompt_text}
+        ],
+        "temperature": 0.1
+    }
+    
+    try:
+        # 发送 LLM 请求，读取返回内容
+        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
+        response.raise_for_status()
+        resp_json = response.json()
+        content = resp_json['choices'][0]['message']['content']
+        print(f"{MODELNAME} work! 返回答案成功...")
+        
+        # 尝试提取 JSON (防止 LLM 添加 markdown 语法块)
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+            answers_data = json.loads(json_str)
+            answers_list = answers_data.get("answers", [])
+            
+            for ans in answers_list:
+                q_id = ans.get("id")
+                choices = ans.get("choices", [])
+                if q_id in question_map:
+                    for choice in choices:
+                        choice = str(choice).strip().upper()
+                        input_elem = question_map[q_id]["options"].get(choice)
+                        if input_elem:
+                            # 判断是否已经被勾选，没勾选的则通过执行 JS 触发 click
+                            is_checked = driver.execute_script("return arguments[0].checked;", input_elem)
+                            if not is_checked:
+                                driver.execute_script("arguments[0].click();", input_elem)
+                                time.sleep(0.3)
+            # 提交答案
+            try:
+                time.sleep(0.5)
+                end_btn = driver.find_element(By.ID, "mod_quiz-next-nav")
+                driver.execute_script("arguments[0].click();", end_btn)
+                time.sleep(2.0)
+                submit_all_btn = driver.find_element(By.XPATH, "//button[contains(text(), '全部提交并结束')]")
+                driver.execute_script("arguments[0].click();", submit_all_btn)
+                time.sleep(1.0) 
+                confirm_submit_btn = driver.find_element(By.XPATH, "//div[contains(@class, 'confirmation-buttons')]//input[@value='全部提交并结束']")
+                driver.execute_script("arguments[0].click();", confirm_submit_btn)
+
+                print("\n......LLM 答题完毕......\n")
+                time.sleep(1.5)
+            
+            except:
+                print("\n尝试自动提交答卷时遇错，请自行提交\n")
+
+        else:
+            print("未能从大模型返回中解析出 JSON 格式:\n", content)
+            
+    except Exception as e:
+        print(f"大模型请求或自动点击失败: {e}")
+
 
 
     
@@ -134,7 +334,7 @@ print("\n等待 “操作提示” 出现后再执行操作，若十秒内没有
 
 
 # 启动浏览器，跳转登陆界面
-service = Service(executable_path="msedgedriver.exe")
+service = Service(executable_path=resource_path("msedgedriver.exe"))
 driver = webdriver.Edge(service=service)
 driver.set_window_size(800, 600)  
 driver.get('https://lms.sysu.edu.cn/my/')
