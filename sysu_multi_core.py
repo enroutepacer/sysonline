@@ -123,72 +123,76 @@ def Inject_and_check(driver):
 def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     # 操作器回到主窗口
     driver.switch_to.window(Main_window)
-    Is_test = 1
-    is_test = driver.find_elements(By.CSS_SELECTOR, "div.availabilityinfo.isrestricted")
+    driver.get(VIDEO_LIST)
+    is_test_later = driver.find_elements(By.CSS_SELECTOR, "div.availabilityinfo.isrestricted")
 
-    if is_test:
-        Is_test = 1
-        page_fit = 1
-        driver.get(VIDEO_LIST)
+    # 找到未完成元素
+    quizzes = driver.find_elements(By.CSS_SELECTOR, "li.activity.quiz.modtype_quiz")
+    for quiz in quizzes:
+        is_completed = quiz.find_elements(By.CSS_SELECTOR, "span.badge-pill.alert-success")
+        
+        if not is_completed:
+            # 获取练习链接
+            link_elem = quiz.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
+            # 有一个拿不到链接说明后续全未解锁，直接退出循环
+            if not link_elem:
+                break
 
-        # 尝试进入答题页面
-        try:
-            # 找到未完成元素
-            quizzes = driver.find_elements(By.CSS_SELECTOR, "li.activity.quiz.modtype_quiz")
-            for quiz in quizzes:
-                is_completed = quiz.find_elements(By.CSS_SELECTOR, "span.badge-pill.alert-success")
-                if not is_completed:
-                    link_elem = quiz.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
-                    quiz_url = link_elem.get_attribute("href")
-                    driver.get(quiz_url)
-                    break
-                continue
-            time.sleep(1.5)
-            # 点击按钮
-            start_btn = driver.find_element(By.CSS_SELECTOR, "div.quizstartbuttondiv button[type='submit']")
-            driver.execute_script("arguments[0].click();", start_btn)
-            time.sleep(1.5)
-            confirm_btn = driver.find_element(By.ID, "id_submitbutton")
-            driver.execute_script("arguments[0].click();", confirm_btn)
-            time.sleep(1.5)
-
-        except:
-            page_fit = 0
-            pass
-
-        # 如果配置了 API 则进入答题
-        if page_fit and APIKEY != '' and MODELNAME != '':
-            print("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n\n......LLM 完成题目中......\n")
+            quiz_url = link_elem.get_attribute("href")
+            driver.get(quiz_url)
+            
+            # 尝试进入答题页面
+            page_fit = 1
             try:
-                LLM_kill_test(driver)
+                time.sleep(1.5)
+                # 点击按钮
+                start_btn = driver.find_element(By.CSS_SELECTOR, "div.quizstartbuttondiv button[type='submit']")
+                driver.execute_script("arguments[0].click();", start_btn)
+                time.sleep(1.5)
+                confirm_btn = driver.find_element(By.ID, "id_submitbutton")
+                driver.execute_script("arguments[0].click();", confirm_btn)
+                time.sleep(1.5)
             except:
-                print("\nLLM 运作失败! ! !\n请手动答题\n")
+                page_fit = 0
+                pass
+            
+            # 如果配置了 API 则进入答题
+            if page_fit and APIKEY != '' and MODELNAME != '':
+                print("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n\n......LLM 完成题目中......\n")
+                try:
+                    LLM_kill_test(driver)
+                except:
+                    print("\nLLM 运作失败! ! !\n请手动答题\n")
 
-        # 没有配置或页面错误则手动答题
-        else:
-            input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n")
-            input("确定已完成？如确定练习已完成并提交，请再次点击回车\n")
+            # 没有配置或页面错误则手动答题
+            else:
+                if APIKEY != '' and MODELNAME != '' and not page_fit:
+                    print("\n由于页面打开失败 LLM 无法工作, 请手动答题, 或更换网络环境后重试\n")
+                input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n")
+                input("确定已完成？如确定练习已完成并提交，请再次点击回车\n")
         
-        driver.get(VIDEO_LIST)
-        new_count = 0
-        new_all_links = Get_video_links(driver, VIDEO_PREFIX)
-        
-        # 更新待处理视频
-        for new_link in new_all_links:
-            if new_link not in video_links:
-                video_links.append(new_link)
-                new_count +=1
+        continue
+    
+    driver.get(VIDEO_LIST)
+    new_count = 0
+    new_all_links = Get_video_links(driver, VIDEO_PREFIX)
+    
+    # 更新待处理视频
+    for new_link in new_all_links:
+        if new_link not in video_links:
+            video_links.append(new_link)
+            new_count +=1
 
-        if new_count != 0:
-            print(f'\n发现{new_count}个新解锁视频\n进程继续中...\n')
-        else:
-            print('没有检测到新视频，该课程可能已完成\n') 
+    if new_count != 0:
+        print(f'\n发现{new_count}个新解锁视频\n进程继续中...\n')
     else:
-        # 用内部 is_test 来准确修改外部 Is_test
-        Is_test = 0
-        print("未进一步发现练习\n")
+        print('没有检测到新视频，该课程可能已完成\n') 
 
-    return Is_test
+    if not is_test_later:
+        print("未进一步发现练习\n")
+    
+    # 用内部 is_test_later 来准确修改外部 Is_test
+    return is_test_later
 
 
 # 自动答题请求函数 (vibe)
