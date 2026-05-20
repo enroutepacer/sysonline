@@ -126,57 +126,65 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     driver.get(VIDEO_LIST)
     is_test_later = driver.find_elements(By.CSS_SELECTOR, "div.availabilityinfo.isrestricted")
 
-    # 找到未完成元素
+    # 找到所有练习元素
     quizzes = driver.find_elements(By.CSS_SELECTOR, "li.activity.quiz.modtype_quiz")
+
+    # 存储未完成元素
+    quiz_to_finish = []
     for quiz in quizzes:
         is_completed = quiz.find_elements(By.CSS_SELECTOR, "span.badge-pill.alert-success")
-        
+
         if not is_completed:
-            # 获取练习链接
-            link_elem = quiz.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
+            try:
+            # 获取并存储练习链接
+                link_elem = quiz.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
+            except:
             # 有一个拿不到链接说明后续全未解锁，直接退出循环
-            if not link_elem:
                 break
 
             quiz_url = link_elem.get_attribute("href")
-            driver.get(quiz_url)
-            
-            # 尝试进入答题页面
-            page_fit = 1
-            try:
-                time.sleep(1.5)
-                # 点击按钮
-                start_btn = driver.find_element(By.CSS_SELECTOR, "div.quizstartbuttondiv button[type='submit']")
-                driver.execute_script("arguments[0].click();", start_btn)
-                time.sleep(1.5)
-                confirm_btn = driver.find_element(By.ID, "id_submitbutton")
-                driver.execute_script("arguments[0].click();", confirm_btn)
-                time.sleep(1.5)
-            except:
-                page_fit = 0
-                pass
-            
-            # 如果配置了 API 则进入答题
-            if page_fit and APIKEY != '' and MODELNAME != '':
-                print("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n\n......LLM 完成题目中......\n")
-                try:
-                    LLM_kill_test(driver)
-                except:
-                    print("\nLLM 运作失败! ! !\n请手动答题\n")
+            quiz_to_finish.append(quiz_url)
 
-            # 没有配置或页面错误则手动答题
-            else:
-                if APIKEY != '' and MODELNAME != '' and not page_fit:
-                    print("\n由于页面打开失败 LLM 无法工作, 请手动答题, 或更换网络环境后重试\n")
-                input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n")
-                input("确定已完成？如确定练习已完成并提交，请再次点击回车\n")
-        
+    # 逐个处理练习
+    for quiz_url in quiz_to_finish:
+        driver.get(quiz_url)
+
+        # 尝试进入答题页面
+        page_fit = 1
+        try:
+            time.sleep(1.5)
+            # 点击按钮
+            start_btn = driver.find_element(By.CSS_SELECTOR, "div.quizstartbuttondiv button[type='submit']")
+            driver.execute_script("arguments[0].click();", start_btn)
+            time.sleep(1.5)
+            confirm_btn = driver.find_element(By.ID, "id_submitbutton")
+            driver.execute_script("arguments[0].click();", confirm_btn)
+            time.sleep(1.5)
+        except:
+            page_fit = 0
+            pass
+
+        # 如果配置了 API 且进入了页面 则开始答题
+        if page_fit and APIKEY != '' and MODELNAME != '':
+            print("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n\n......LLM 完成题目中......\n")
+            try:
+                LLM_kill_test(driver)
+            except:
+                print("\nLLM 运作失败! ! !\n请手动答题\n")
+
+        # 没有配置或页面错误则手动答题
+        else:
+            if APIKEY != '' and MODELNAME != '' and not page_fit:
+                print("\n由于页面打开失败 LLM 无法工作, 请手动答题, 或更换网络环境后重试\n")
+            input("\nTEST_______\n     ! 发现练习\n     ! 发现练习\n     ! 发现练习\n     完成练习后点击回车继续\n\n")
+            input("确定已提交？如确定练习已完成并提交，请再次点击回车\n")
+
         continue
-    
+
     driver.get(VIDEO_LIST)
     new_count = 0
     new_all_links = Get_video_links(driver, VIDEO_PREFIX)
-    
+
     # 更新待处理视频
     for new_link in new_all_links:
         if new_link not in video_links:
@@ -186,11 +194,11 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     if new_count != 0:
         print(f'\n发现{new_count}个新解锁视频\n进程继续中...\n')
     else:
-        print('没有检测到新视频，该课程可能已完成\n') 
+        print('没有检测到新视频，该课程可能已完成\n')
 
     if not is_test_later:
         print("未进一步发现练习\n")
-    
+
     # 用内部 is_test_later 来准确修改外部 Is_test
     return is_test_later
 
