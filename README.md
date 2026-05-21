@@ -12,6 +12,8 @@ This script automatically plays all the video courses inside one webpage efficie
 * Declare:
 It aims to help those *WHO ARE IN GREAT NEED OF COMPLETING ONLINE COURSE BECAUSE OF TIME AND ACADEMIC CONFLICT*
 
+you can view the full introduction in detail below, or [Quick check and download](#quick-check-and-download)
+
 ## Prerequisites
 To run the script on your own PC successfully, the environments below are required.
 1. > Python (3.13+ recommended)
@@ -19,8 +21,9 @@ To run the script on your own PC successfully, the environments below are requir
 2. > Webdriver (corresponding to your browser)---[Download Webdriver](#webdriver-download)
 
 ## Instructions
-Two versions are provided, `multi-core` and `single-core`, of course if your PC is not a brick, I'd recommend the former one.
+Two safe versions are provided, `multi-core` and `single-core`, of course if your PC is not a brick, I'd recommend the former one. 
 
+`multi_core` uses **window pool** and **API configuration**, and `single_core` is the primitive baseline version, showing basical web-operating logic. 
 
 Make sure these three files are under the same path : 
 > File
@@ -36,6 +39,14 @@ To modify the **window count**, either for a bad network condition, or for bette
 
 API configuration is optional. To configure your own **API**, go to `config.json`.
 
+
+## Quick check and download
+
+* **sysu_multi_core.exe**: Safe for account (No Request Flooding), 100% speed
+* **sysu_danger_core.exe**: Risky for account (Request Flooding), 500% speed
+* **sysu_test_redo.exe**: AI redo all the test for better score  
+
+**Click [here](https://github.com/EnroutePacer/SysOnline/releases/download/v2.1.0/dist.rar) to download**
 
 ## Add
 
