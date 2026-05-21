@@ -11,35 +11,19 @@ from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 
 
-def resource_path(relative_path):
-    """获取资源文件的绝对路径（兼容 PyInstaller 打包模式和开发模式）
-    优先使用 exe 同目录下的文件（方便用户编辑 config.json），
-    回退到 _internal 中的打包版本"""
-    # PyInstaller 打包后：优先用 exe 同目录，方便用户修改配置
-    if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(sys.executable)
-        external_path = os.path.join(exe_dir, relative_path)
-        if os.path.exists(external_path):
-            return external_path
-        # 回退到 _internal 中的打包版本
-        return os.path.join(sys._MEIPASS, relative_path)
-    # 开发模式：使用脚本所在目录
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
-
-
-# 读取配置
-config_path = resource_path('config.json')
-with open(config_path, 'r', encoding='utf-8') as f:
-    config = json.load(f)
-
-APIKEY = config.get('APIKEY', '')
-BASEURL = config.get('BASEURL', '')
-MODELNAME = config.get('MODELNAME', '')
-
 class Window_worker:
     Is_new = 1
     Is_ended = 0
     id = ''
+
+
+
+# 读取配置函数
+def resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
 
 
 # 抓取视频函数
@@ -66,6 +50,7 @@ def Get_video_links(driver, href_prefix):
                 except:
                     continue
     return links
+
 
 
 # 注入 JS 函数
@@ -117,6 +102,7 @@ def Inject_and_check(driver):
                         }};
                     """)
     return status
+
 
 
 # 阶段性检查函数
@@ -201,6 +187,7 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
 
     # 用内部 is_test_later 来准确修改外部 Is_test
     return is_test_later
+
 
 
 # 自动答题请求函数 (vibe)
@@ -337,7 +324,20 @@ def LLM_kill_test(driver):
 
 
 
-    
+
+
+'''-------------------------------前置部分-------------------------------'''
+
+
+# 读取配置
+config_path = resource_path('config.json')
+with open(config_path, 'r', encoding='utf-8') as f:
+    config = json.load(f)
+
+APIKEY = config.get('APIKEY', '')
+BASEURL = config.get('BASEURL', '')
+MODELNAME = config.get('MODELNAME', '')
+
 
 '''-------------------------------驱动部分-------------------------------'''
 
@@ -365,7 +365,6 @@ driver.execute_script("arguments[0].click();", btn_elem)
 
 # 登录
 input('\n================ 操作提示 ================\n\n1. 登录\n2. 选择一个课程，如《心理健康教育》，点进课程\n3. 请点击回车\n\n================ 操作提示 ================\n\n\n   ')
-
 
 
 # 获取源网页和视频
