@@ -10,35 +10,18 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.service import Service
 
 
-def resource_path(relative_path):
-    """获取资源文件的绝对路径（兼容 PyInstaller 打包模式和开发模式）
-    优先使用 exe 同目录下的文件（方便用户编辑 config.json），
-    回退到 _internal 中的打包版本"""
-    # PyInstaller 打包后：优先用 exe 同目录，方便用户修改配置
-    if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(sys.executable)
-        external_path = os.path.join(exe_dir, relative_path)
-        if os.path.exists(external_path):
-            return external_path
-        # 回退到 _internal 中的打包版本
-        return os.path.join(sys._MEIPASS, relative_path)
-    # 开发模式：使用脚本所在目录
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
-
-
-# 读取配置
-config_path = resource_path('config.json')
-with open(config_path, 'r', encoding='utf-8') as f:
-    config = json.load(f)
-
-APIKEY = config.get('APIKEY', '')
-BASEURL = config.get('BASEURL', '')
-MODELNAME = config.get('MODELNAME', '')
-
 class Window_worker:
     Is_new = 1
     Is_ended = 0
     id = ''
+
+
+
+def resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
 
 
 # 抓取视频函数
@@ -65,6 +48,7 @@ def Get_video_links(driver, href_prefix):
                 except:
                     continue
     return links
+
 
 
 # 注入 JS 伪造进度上报（替代原来的真实视频播放）
@@ -240,6 +224,7 @@ def Inject_progress_faker(driver):
     return status
 
 
+
 # 阶段性检查函数
 def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     # 操作器回到主窗口
@@ -323,6 +308,7 @@ def Check_Do_test(driver, video_links, VIDEO_LIST, VIDEO_PREFIX):
     
     # 用内部 is_test_later 来准确修改外部 Is_test
     return is_test_later
+
 
 
 # 自动答题请求函数 (vibe)
@@ -461,6 +447,19 @@ def LLM_kill_test(driver):
 
     
 
+'''-------------------------------前置部分-------------------------------'''
+
+
+# 读取配置
+config_path = resource_path('config.json')
+with open(config_path, 'r', encoding='utf-8') as f:
+    config = json.load(f)
+
+APIKEY = config.get('APIKEY', '')
+BASEURL = config.get('BASEURL', '')
+MODELNAME = config.get('MODELNAME', '')
+
+
 '''-------------------------------驱动部分-------------------------------'''
 
 
@@ -468,9 +467,13 @@ print("\n等待 “操作提示” 出现后再执行操作，若十秒内没有
 
 
 # 启动浏览器，跳转登陆界面
-service = Service(executable_path=resource_path("msedgedriver.exe"))
-driver = webdriver.Edge(service=service)
-driver.set_window_size(800, 600)  
+options = webdriver.EdgeOptions()
+options.add_argument('--log-level=3')
+options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
+
+service = Service(executable_path=resource_path("msedgedriver.exe"), log_output=os.devnull)
+driver = webdriver.Edge(service=service, options=options)
+driver.set_window_size(800, 600)
 driver.get('https://lms.sysu.edu.cn/my/')
 time.sleep(1.2)
 

@@ -346,9 +346,13 @@ print("\n等待 “操作提示” 出现后再执行操作，若十秒内没有
 
 
 # 启动浏览器，跳转登陆界面
-service = Service(executable_path=resource_path("msedgedriver.exe"))
-driver = webdriver.Edge(service=service)
-driver.set_window_size(800, 600)  
+options = webdriver.EdgeOptions()
+options.add_argument('--log-level=3')
+options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
+
+service = Service(executable_path=resource_path("msedgedriver.exe"), log_output=os.devnull)
+driver = webdriver.Edge(service=service, options=options)
+driver.set_window_size(800, 600)
 driver.get('https://lms.sysu.edu.cn/my/')
 time.sleep(1.2)
 
