@@ -43,7 +43,7 @@ API configuration is optional. To configure your own **API**, go to `config.json
 ## Quick check and download
 
 * **sysu_multi_core.exe**: Safe for account (No Request Flooding), 100% speed
-* **sysu_danger_core.exe**: Risky for account (Request Flooding), 500% speed
+* **sysu_risky_core.exe**: Risky for account (Request Flooding), 500% speed
 * **sysu_test_redo.exe**: AI redo all the test for better score  
 
 **Click [here](https://github.com/EnroutePacer/SysOnline/releases/download/v2.1.0/dist.rar) to download**
